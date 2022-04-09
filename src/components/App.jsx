@@ -15,11 +15,11 @@ function App() {
   const [inputValue, setInputValue] = useState('');
   const [images, setImages] = useState([]);
   const [page, setPage] = useState(1);
-  const [totalHits, setTotalHits] = useState(null);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [modalImage, setModalImage] = useState('');
   const [error, setError] = useState(null);
+  const [totalPages, setTotalPages] = useState(null);
 
   const PER_PAGE = 12;
 
@@ -27,6 +27,31 @@ function App() {
     if (!inputValue) {
       return;
     }
+    const fetchImages = () => {
+      setLoading(true);
+
+      Fetch(inputValue, page, PER_PAGE)
+        .then(response => {
+          if (response.ok) {
+            return response.json();
+          }
+          return Promise.reject(new Error('nothing found'));
+        })
+        .then(images => {
+          if (images.totalHits === 0) {
+            toast.warn('Nothing found with your search query');
+            return;
+          }
+
+          setImages(prevImage => [...prevImage, ...images.hits]);
+          setTotalPages(Math.ceil(images.totalHits / PER_PAGE));
+          // setTotalHits(images.totalHits);
+        })
+        .catch(error => setError(error))
+        .finally(() => {
+          setLoading(false);
+        });
+    };
     fetchImages();
   }, [page, inputValue]);
 
@@ -34,34 +59,9 @@ function App() {
     setInputValue(inputValue);
     setImages([]);
     setPage(1);
-    setTotalHits(0);
+    setTotalPages(0);
   };
 
-  const fetchImages = () => {
-    setLoading(true);
-
-    Fetch(inputValue, page, PER_PAGE)
-      .then(response => {
-        if (response.ok) {
-          return response.json();
-        }
-        return Promise.reject(new Error('nothing found'));
-      })
-      .then(images => {
-        if (images.totalHits.length === 0) {
-          toast.warn('Nothing found with your search query');
-          return;
-        }
-
-        setImages(prevImage => [...prevImage, ...images.hits]);
-
-        setTotalHits(images.totalHits);
-      })
-      .catch(error => setError(error))
-      .finally(() => {
-        setLoading(false);
-      });
-  };
   const onSetPage = () => {
     setPage(prevState => prevState + 1);
   };
@@ -87,7 +87,8 @@ function App() {
 
       <ImageGallery images={images} onClick={openModal} />
 
-      {totalHits >= PER_PAGE && <Button onClick={onSetPage} />}
+      {totalPages > 1 && page !== totalPages && <Button onClick={onSetPage} />}
+
       {loading && (
         <TailSpin height="100" width="100" color="grey" ariaLabel="loading" />
       )}
